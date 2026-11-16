@@ -18,5 +18,7 @@ RT26_CLAVE='…' node publish.js && node tools/check.js
 ```
 La contraseña también puede ir en un archivo `.clave` (está en `.gitignore`). Sin ella no se pueden actualizar los datos.
 
-## Publicar en GitHub Pages
-Settings → Pages → «Deploy from a branch» → rama con `docs/` → carpeta `/docs`.
+## Publicación (GitHub Pages)
+La web se sirve desde la rama `gh-pages` (raíz), que contiene solo el contenido de `docs/`. GitHub activó Pages
+automáticamente al subir esa rama, sin tocar los ajustes. Para actualizar: `node publish.js` y subir el contenido de
+`docs/` a la rama `gh-pages`. El código fuente está en la rama `web`.
