@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Road Trip 2026</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#16293f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Road Trip 26">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="icon-192.png">
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;background:#16293f;color:#fff;font:17px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif}
+main{max-width:420px;margin:0 auto;padding:calc(48px + env(safe-area-inset-top)) 22px 40px;text-align:center}
+img{border-radius:22px;box-shadow:0 6px 24px rgba(0,0,0,.35)}
+h1{font-size:1.6rem;margin:1rem 0 .3rem}
+p{color:#cfdbe8;margin:.3rem 0 1.2rem}
+form{text-align:left;background:#fff;color:#132030;border-radius:18px;padding:18px}
+label{display:block;font-weight:700;font-size:.92rem;margin-bottom:.35rem}
+.pwrow{display:flex;gap:8px}
+input[type=password],input[type=text]{flex:1;min-width:0;font-size:1.1rem;padding:.75rem .85rem;border:1px solid #c9d3de;border-radius:12px}
+#ver{border:0;border-radius:12px;padding:0 .9rem;background:#e8f1f5;color:#1d6a86;font-weight:700;font-size:.95rem}
+.rem{display:flex;gap:.55rem;align-items:center;font-weight:400;margin:.9rem 0}
+.rem input{width:1.25rem;height:1.25rem;accent-color:#1d6a86}
+#go{width:100%;border:0;border-radius:12px;padding:.85rem;background:#1d6a86;color:#fff;font-size:1.08rem;font-weight:700}
+#go[disabled]{opacity:.6}
+#msg{min-height:1.4em;margin:.7rem 0 0;color:#b23b3b;font-weight:600;text-align:center}
+.small{font-size:.85rem;color:#9fb0c3;margin-top:1.4rem}
+</style>
+</head>
+<body>
+<main id="lock" hidden>
+  <img src="icon-192.png" alt="" width="96" height="96">
+  <h1>Road Trip 2026</h1>
+  <p>Contenido privado. Escribe la contraseña del viaje.</p>
+  <form id="f">
+    <input type="text" name="username" value="viajeros" autocomplete="username" hidden>
+    <label for="pw">Contraseña</label>
+    <div class="pwrow">
+      <input id="pw" name="password" type="password" autocomplete="current-password" autocapitalize="none" autocorrect="off" spellcheck="false" required>
+      <button type="button" id="ver" aria-label="Mostrar la contraseña">Ver</button>
+    </div>
+    <label class="rem"><input type="checkbox" id="rem" checked> Recordar en este móvil</label>
+    <button type="submit" id="go">Entrar</button>
+    <p id="msg" role="alert"></p>
+  </form>
+  <p class="small">Solo hace falta escribirla una vez en cada móvil.</p>
+</main>
+<noscript><p style="padding:2rem;text-align:center">Esta app necesita JavaScript.</p></noscript>
+<script>
+(function () {
+  'use strict';
+  var SALT = '__SALT__', IV = '__IV__', DATA = '__DATA__', ITER = __ITER__;
+  var DB = 'rt26', STORE = 'k', KEY_ID = 'clave';
+
+  // Captura la invitación de instalación (Android) para que la app la ofrezca después.
+  window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); window.RT26_INSTALL = e; });
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(function () {});
+
+  function b64(s) {
+    var bin = atob(s), u = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
+    return u;
+  }
+  function db() {
+    return new Promise(function (res, rej) {
+      var r = indexedDB.open(DB, 1);
+      r.onupgradeneeded = function () { r.result.createObjectStore(STORE); };
+      r.onsuccess = function () { res(r.result); };
+      r.onerror = function () { rej(r.error); };
+    });
+  }
+  function tx(mode, fn) {
+    return db().then(function (d) {
+      return new Promise(function (res) {
+        var t = d.transaction(STORE, mode), req = fn(t.objectStore(STORE));
+        t.oncomplete = function () { res(req && req.result); };
+        t.onerror = t.onabort = function () { res(null); };
+      });
+    }).catch(function () { return null; });
+  }
+  var getKey = function () { return tx('readonly', function (s) { return s.get(KEY_ID); }); };
+  var putKey = function (k) { return tx('readwrite', function (s) { return s.put(k, KEY_ID); }); };
+  var delKey = function () { return tx('readwrite', function (s) { return s.delete(KEY_ID); }); };
+
+  function derive(pw) {
+    return crypto.subtle.importKey('raw', new TextEncoder().encode(pw.normalize('NFC')), 'PBKDF2', false, ['deriveKey'])
+      .then(function (base) {
+        return crypto.subtle.deriveKey({ name: 'PBKDF2', salt: b64(SALT), iterations: ITER, hash: 'SHA-256' },
+          base, { name: 'AES-GCM', length: 256 }, false, ['decrypt']);
+      });
+  }
+  function decrypt(key) {
+    return crypto.subtle.decrypt({ name: 'AES-GCM', iv: b64(IV) }, key, b64(DATA))
+      .then(function (buf) { return new TextDecoder().decode(buf); });
+  }
+  function showApp(html) {
+    window.RT26_LOCK = function () { delKey().then(function () { location.replace(location.pathname); }); };
+    document.open();
+    document.write(html);
+    document.close();
+  }
+  function showLock(text) {
+    var main = document.getElementById('lock');
+    main.hidden = false;
+    var pw = document.getElementById('pw'), go = document.getElementById('go'), msg = document.getElementById('msg');
+    if (text) msg.textContent = text;
+    document.getElementById('ver').onclick = function () {
+      var t = pw.type === 'password';
+      pw.type = t ? 'text' : 'password';
+      this.textContent = t ? 'Ocultar' : 'Ver';
+    };
+    document.getElementById('f').onsubmit = function (e) {
+      e.preventDefault();
+      if (!window.crypto || !crypto.subtle) { msg.textContent = 'Abre la app desde su dirección https://'; return; }
+      go.disabled = true;
+      go.textContent = 'Comprobando…';
+      msg.textContent = '';
+      var key;
+      derive(pw.value.trim()).then(function (k) { key = k; return decrypt(k); }).then(function (html) {
+        var remember = document.getElementById('rem').checked;
+        return (remember ? putKey(key) : delKey()).then(function () { showApp(html); });
+      }, function () {
+        go.disabled = false;
+        go.textContent = 'Entrar';
+        msg.textContent = 'Contraseña incorrecta. Revisa mayúsculas y guiones.';
+        pw.select();
+      });
+    };
+    setTimeout(function () { pw.focus(); }, 50);
+  }
+
+  if (!window.crypto || !crypto.subtle || !window.indexedDB) { showLock(); return; }
+  getKey().then(function (k) {
+    if (!k) return showLock();
+    return decrypt(k).then(showApp, function () { delKey(); showLock(); });
+  }, function () { showLock(); });
+})();
+</script>
+</body>
+</html>

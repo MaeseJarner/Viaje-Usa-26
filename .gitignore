@@ -1,0 +1,8 @@
+# Nunca publicar: contraseña, datos del viaje en claro y la versión sin cifrar.
+.clave
+src/data/
+dist/
+NOTES.md
+node_modules/
+# Lista de palabras usada para generar la contraseña: no se publica.
+tools/palabras.js
