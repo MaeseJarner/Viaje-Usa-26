@@ -10,6 +10,8 @@
     // ?ahora=AAAA-MM-DDTHH:MM:SS-05:00 permite simular una fecha (para probar la vista Hoy).
     var forced = Date.parse(new URLSearchParams(location.search).get('ahora') || '');
     var now = function () { return isNaN(forced) ? Date.now() : forced; };
+    window.RT26_NOW = now;
+    var artSvg = function (key) { return '<svg class="art hero-art" aria-hidden="true"><use href="#art-' + key + '" width="100%" height="100%"/></svg>'; };
 
     var views = $$('.view');
     var dayEls = $$('section.day');
@@ -47,6 +49,7 @@
         window.scrollTo(0, scrollPos[view.id] || 0);
       }
       if (view.id === 'buscar') setTimeout(function () { $('#q').focus(); }, 60);
+      try { document.dispatchEvent(new CustomEvent('rt26:view', { detail: view.id })); } catch (e) {}
     }
     window.addEventListener('hashchange', function () { show(location.hash); });
 
@@ -127,6 +130,35 @@
         (go ? '<a class="go" target="_blank" rel="noopener" href="' + go.getAttribute('href') + '">Ir</a>' : '') + '</div>';
     }
 
+    // Recordatorios: tareas de la lista con fechas; aparecen en «Hoy» mientras no estén marcadas.
+    function reminders(t) {
+      var st = chkState();
+      return $$('#checklist li[data-rem-from]').filter(function (li) {
+        var k = $('input', li).dataset.k;
+        return t >= +li.dataset.remFrom && t < +li.dataset.remUntil && !st[k];
+      }).map(function (li) {
+        var k = $('input', li).dataset.k;
+        var href = li.dataset.remHref;
+        var ext = /^https?:/.test(href) ? ' target="_blank" rel="noopener"' : '';
+        return '<div class="card remind"><small>Recordatorio</small><h4>' + li.dataset.remTitle + '</h4><p>' + $('label span', li).innerHTML.replace(/<em class="added">[^<]*<\/em>/, '') + '</p>' +
+          '<div class="actions"><a class="btn" href="' + href + '"' + ext + '>' + li.dataset.remLabel + '</a><button type="button" class="btn" data-done="' + k + '">Hecho</button></div></div>';
+      }).join('');
+    }
+    document.addEventListener('click', function (e) {
+      var b = e.target.closest && e.target.closest('button[data-done]');
+      if (!b) return;
+      var cb = $('#checklist input[data-k="' + b.getAttribute('data-done') + '"]');
+      if (cb) { cb.checked = true; cb.dispatchEvent(new Event('change')); }
+      renderHoy();
+    });
+
+    var WXDATA = (function () { try { return JSON.parse($('#wx-data').textContent); } catch (e) { return { days: {} }; } })();
+    function wxSummary(iso) {
+      var ids = WXDATA.days[iso] || [];
+      return window.RT26_WX && ids.length ? window.RT26_WX.summary(ids) : '';
+    }
+    document.addEventListener('rt26:wx', function () { if (current && current.id === 'hoy') renderHoy(); });
+
     function chkState() {
       try { return JSON.parse(localStorage.getItem('rt26-checklist')) || {}; } catch (e) { return {}; }
     }
@@ -145,16 +177,18 @@
       var html = '';
       var appendAfter = [];
 
+      html += reminders(t);
       if (t < +first.dataset.ds) {
         var left = Math.ceil((+first.dataset.ds - t) / 864e5);
         var ld = new Date(t);
         var localIso = ld.getFullYear() + '-' + pad(ld.getMonth() + 1) + '-' + pad(ld.getDate());
         var firstItem = $('li.ti', first);
-        html += '<div class="hero"><p class="eyebrow">Cuenta atrás</p>' +
+        html = '<div class="hero art-hero">' + artSvg('road') + '<div class="hero-text"><p class="eyebrow">Cuenta atrás</p>' +
           (localIso === first.dataset.day
             ? '<p class="big">¡Hoy!</p><h2>Empieza el viaje</h2>'
             : '<p class="big">' + left + '</p><h2>' + (left === 1 ? 'día' : 'días') + ' para el viaje</h2>') +
-          '<p>' + first.dataset.long + ' · ' + $('.tm', firstItem).textContent + ' ' + plainText($('.ac', firstItem)) + '</p></div>';
+          '<p>' + first.dataset.long + ' · ' + $('.tm', firstItem).textContent + ' ' + plainText($('.ac', firstItem)) + '</p></div></div>' + html;
+        html += wxSummary(first.dataset.day);
         var p = chkProgress();
         html += '<div class="card"><h4>Lista de comprobación</h4><p>' + p.done + ' de ' + p.total + ' tareas hechas</p>' +
           '<div class="progress"><i style="width:' + Math.round((100 * p.done) / Math.max(1, p.total)) + '%"></i></div>' +
@@ -166,16 +200,16 @@
         appendAfter.push(['#hoy-conf', stripIds($('#reservas ul.rv').cloneNode(true))]);
         html += '<div class="actions"><a class="btn" href="#d-' + first.dataset.day + '">Ver el primer día</a><a class="btn" href="#dias">Itinerario completo</a></div>';
       } else if (t >= +last.dataset.de) {
-        html += '<div class="hero"><p class="eyebrow">Fin</p><h2>Viaje terminado</h2><p>Esperamos que haya ido genial. El itinerario sigue disponible.</p></div>' +
-          '<div class="actions"><a class="btn" href="#dias">Ver itinerario</a></div>';
+        html = '<div class="hero art-hero">' + artSvg(last.dataset.day) + '<div class="hero-text"><p class="eyebrow">Fin</p><h2>Viaje terminado</h2><p>Esperamos que haya ido genial. El itinerario sigue disponible.</p></div></div>' +
+          html + '<div class="actions"><a class="btn" href="#dias">Ver itinerario</a></div>';
       } else {
         var day = findDay(t);
         var list = $('ol.tl', day);
         var r = mark(list, t);
         var tz = $('.tznote', day);
-        html += '<div class="hero"><p class="eyebrow">Día ' + day.dataset.n + ' de ' + dayEls.length + ' · ' + day.dataset.long + '</p>' +
+        html = '<div class="hero art-hero">' + artSvg(day.dataset.day) + '<div class="hero-text"><p class="eyebrow">Día ' + day.dataset.n + ' de ' + dayEls.length + ' · ' + day.dataset.long + '</p>' +
           '<h2>' + $('.dh h2', day).textContent + '</h2><p>' + $('.dh .route', day).textContent + '</p>' +
-          (tz ? '<p class="tznote">' + tz.textContent + '</p>' : '') + '</div>';
+          (tz ? '<p class="tznote">' + tz.textContent + '</p>' : '') + '</div></div>' + html;
         if (r.cur) html += nowCard(r.cur, 'now', t);
         if (r.nxt) html += nowCard(r.nxt, 'next', t);
         if (!r.cur && !r.nxt) {
@@ -183,6 +217,7 @@
           html += '<div class="nowcard"><div><small>Jornada terminada</small>' +
             (nextDay ? 'Buen descanso. <a href="#' + nextDay.id + '">Ver mañana</a>' : 'Buen viaje de vuelta a casa.') + '</div></div>';
         }
+        html += wxSummary(day.dataset.day);
         var hotel = day.dataset.hotel && document.getElementById(day.dataset.hotel);
         html += '<h3>Esta noche</h3><div id="hoy-hotel"></div>';
         if (hotel) appendAfter.push(['#hoy-hotel', stripIds(hotel.cloneNode(true))]);
@@ -231,6 +266,14 @@
       return '<div class="card tip"><h4>Instálala en el móvil</h4>' + how +
         '<p class="note">Así se abre como una app, a pantalla completa y sin conexión.</p>' +
         (installEvt ? '<div class="actions"><button type="button" class="btn" id="install-now">Instalar ahora</button></div>' : '') + '</div>';
+    }
+
+    // ---------- Booking: en Android, abrir directamente la app si está instalada ----------
+    if (/Android/.test(navigator.userAgent)) {
+      $$('a.booking-link').forEach(function (a) {
+        a.setAttribute('href', 'intent://www.booking.com/mytrips.html#Intent;scheme=https;package=com.booking;S.browser_fallback_url=' +
+          encodeURIComponent('https://www.booking.com/mytrips.html') + ';end');
+      });
     }
 
     // ---------- copiar códigos ----------

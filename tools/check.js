@@ -14,6 +14,12 @@ const broken = internal.filter((h) => h && !idSet.has(h));
 const dataH = [...new Set([...html.matchAll(/data-h="#([^"]+)"/g)].map((m) => m[1]))].filter((h) => !idSet.has(h));
 const external = [...html.matchAll(/href="(https?:[^"]+)"/g)].map((m) => m[1]);
 const ALLOWED = [
+  'illinoistollway.com/paybyplate',
+  'www.platepay.com/',
+  'budget.e-tolls.com/',
+  'open-meteo.com/',
+  'forecast.weather.gov/MapClick.php?',
+  'www.booking.com/mytrips.html',
   'www.google.com/maps/dir/?api=1&',
   'www.google.com/maps/search/?api=1&',
   'www.ctabustracker.com/',
@@ -27,7 +33,7 @@ const ALLOWED = [
 ];
 const badExt = external.filter((u) => !ALLOWED.some((p) => u.startsWith('https://' + p)));
 const tels = [...html.matchAll(/href="tel:([^"]+)"/g)].map((m) => m[1]);
-const badTel = tels.filter((t) => !/^\+1\d{10}$/.test(t) && t !== '911');
+const badTel = tels.filter((t) => !/^\+1\d{10}$/.test(t) && !/^\+34\d{9}$/.test(t) && t !== '911');
 const leftovers = (html.match(/\*\*/g) || []).length;
 
 console.log(`ids: ${ids.length} · duplicados: ${dup.length ? dup.join(', ') : 0}`);

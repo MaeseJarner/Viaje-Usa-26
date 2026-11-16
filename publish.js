@@ -82,16 +82,20 @@ function main() {
     const prev = fs.readFileSync(outIndex, 'utf8');
     const iv = (prev.match(/IV = "([^"]+)"/) || [])[1];
     const data = (prev.match(/DATA = "([^"]+)"/) || [])[1];
-    if (iv && data && prev.includes(JSON.stringify(conf.salt)) && unchanged(key, iv, data, html)) lockHtml = prev;
+    // Se reutiliza la página anterior solo si ni la app ni la pantalla de acceso han cambiado.
+    const lockSrc = sha(fs.readFileSync(path.join(ROOT, 'src/lock.html')));
+    if (iv && data && prev.includes(JSON.stringify(conf.salt)) && prev.includes('lock:' + lockSrc) && unchanged(key, iv, data, html)) lockHtml = prev;
   }
   if (!lockHtml) {
     const enc = encrypt(key, html);
     lockHtml = fs
       .readFileSync(path.join(ROOT, 'src/lock.html'), 'utf8')
+      .replace('<!--ART-->', () => require('./src/data/art').art('road'))
       .replace("'__SALT__'", () => JSON.stringify(conf.salt))
       .replace("'__IV__'", () => JSON.stringify(enc.iv))
       .replace("'__DATA__'", () => JSON.stringify(enc.data))
-      .replace('__ITER__', () => String(conf.iter));
+      .replace('__ITER__', () => String(conf.iter))
+      .replace('</html>', () => `<!-- lock:${sha(fs.readFileSync(path.join(ROOT, 'src/lock.html')))} -->\n</html>`);
     fs.writeFileSync(outIndex, lockHtml);
   }
   for (const f of ['manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png']) {

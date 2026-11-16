@@ -10,11 +10,13 @@ const meta = require('./src/data/meta');
 const days = [...require('./src/data/days1'), ...require('./src/data/days2')];
 const annex = require('./src/data/annex');
 const docs = require('./src/data/docs');
+const weather = require('./src/data/weather');
+const artLib = require('./src/data/art');
 const { drawIcon } = require('./src/icons');
 
 const OUT = path.join(__dirname, 'dist');
 const CSS = fs.readFileSync(path.join(__dirname, 'src/app.css'), 'utf8');
-const JS = fs.readFileSync(path.join(__dirname, 'src/app.js'), 'utf8');
+const JS = fs.readFileSync(path.join(__dirname, 'src/app.js'), 'utf8') + '\n' + fs.readFileSync(path.join(__dirname, 'src/weather-client.js'), 'utf8');
 
 // ---------- utilidades ----------
 const esc = (s) =>
@@ -39,7 +41,8 @@ const shortDate = (iso) => {
 };
 
 // Las fechas del viaje caen en horario estándar (sin cambio de hora estacional): CT = UTC−6, ET = UTC−5.
-const OFFSET_H = { CT: 6, ET: 5 };
+// ES = hora peninsular española en invierno (UTC+1), para los vuelos.
+const OFFSET_H = { CT: 6, ET: 5, ES: -1 };
 function toUtc(iso, hh, mm, tz) {
   const p = parseISO(iso);
   return Date.UTC(p.y, p.m - 1, p.d, hh + OFFSET_H[tz], mm);
@@ -84,6 +87,7 @@ const ICON = {
   bus: '<rect x="5" y="3" width="14" height="15" rx="2"/><path d="M5 11h14M8 21v-3M16 21v-3"/><circle cx="8.5" cy="14.5" r=".6"/><circle cx="15.5" cy="14.5" r=".6"/>',
   swap: '<path d="M4 12h16M8 8l-4 4 4 4M16 8l4 4-4 4"/>',
   docs: '<path d="M4 7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2a2 2 0 0 0 0-4z"/><path d="M14 5v12" stroke-dasharray="2 2"/>',
+  tiempo: '<path d="M8 3v1.5M3.4 5.4l1 1M2 10h1.5M13.6 5.4l-1 1"/><path d="M5.6 10.6a3 3 0 0 1 5.6-2.4"/><path d="M8 20a4 4 0 0 1-.3-8 6 6 0 0 1 11.3 1.5A3.3 3.3 0 0 1 18.5 20z"/>',
 };
 const svg = (name, size = 24) =>
   `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[name]}</svg>`;
@@ -100,11 +104,13 @@ function buildTimeline(day) {
     if (!ms.length) throw new Error(`Hora no válida en ${day.date}: ${t}`);
     const z1 = ms[0][3];
     const z2 = ms[1] && ms[1][3];
-    const zs = z1 || z2 || ctx;
-    const ze = z2 || z1 || ctx;
-    ctx = ze;
-    const s = toUtc(day.date, +ms[0][1], +ms[0][2], zs);
-    let e = ms[1] ? toUtc(day.date, +ms[1][1], +ms[1][2], ze) : null;
+    // o.tz fuerza un huso solo para esta entrada (p. ej. hora de España) sin cambiar el del resto del día.
+    const zs = o.tz || z1 || z2 || ctx;
+    const ze = o.tz || z2 || z1 || ctx;
+    if (!o.tz) ctx = ze;
+    const shift = o.nextDay ? 86400000 : 0;
+    const s = toUtc(day.date, +ms[0][1], +ms[0][2], zs) + shift;
+    let e = ms[1] ? toUtc(day.date, +ms[1][1], +ms[1][2], ze) + shift : null;
     if (e !== null && e <= s) throw new Error(`Fin anterior al inicio en ${day.date}: ${t}`);
     if (o.tag && !CHIP[o.tag]) throw new Error('Etiqueta desconocida: ' + o.tag);
     return { i, t, a, o, s, e };
@@ -173,16 +179,18 @@ function renderHotel(h) {
     (h.missing ? '<p class="missing">Falta la dirección exacta y el teléfono de los amigos.</p>' : '') +
     `<p>${md(h.info)}</p><div class="actions">` +
     (h.phone ? `<a class="btn" href="${tel(h.phone)}">Llamar ${esc(h.phone)}</a>` : '') +
-    (h.address ? `<a class="btn" href="${BOOKING_URL}" ${ext}>Reserva en Booking</a>` : '') +
+    (h.noBooking ? '' : bookingBtn('Reserva en Booking')) +
     `<a class="btn" href="${attr(searchUrl(q))}" ${ext}>Mapa</a><a class="btn" href="${attr(dirUrl(q))}" ${ext}>Ruta</a></div></div>`
   );
 }
 
 const modeIcon = (m) => svg(/CTA|Shuttle|Tren/.test(m) ? 'bus' : /^Pie$/.test(m) ? 'walk' : /Coche/.test(m) ? 'car' : 'swap', 20);
 
-const BOOKING_URL = 'https://secure.booking.com/mytrips.html';
-const linkAttrs = (u) => (/^tel:/.test(u) ? '' : ' ' + ext);
-const docHref = (u) => (u.startsWith('MAP:') ? searchUrl(u.slice(4)) : u);
+// En Android, app.js cambia este enlace por un «intent» que abre la app de Booking si está instalada.
+const BOOKING_URL = 'https://www.booking.com/mytrips.html';
+const bookingBtn = (label = 'Abrir la app de Booking') => `<a class="btn booking-link" href="${BOOKING_URL}" ${ext}>${label}</a>`;
+const linkAttrs = (u) => (/^(tel:|#)/.test(u) ? '' : ' ' + ext);
+const docHref = (u) => (u.startsWith('MAP:') ? searchUrl(u.slice(4)) : u === 'BOOKING' ? BOOKING_URL : u);
 const copyBtn = (code) => `<button type="button" class="copy" data-copy="${attr(code)}">Copiar</button>`;
 
 function renderDocs() {
@@ -201,7 +209,9 @@ function renderDocs() {
           '<dl class="kv">' +
           d.rows.map(([a, b]) => `<dt>${esc(a)}</dt><dd>${md(b)}</dd>`).join('') +
           '</dl><div class="actions">' +
-          d.links.map(([l, u]) => `<a class="btn" href="${attr(docHref(u))}"${linkAttrs(u)}>${esc(l)}</a>`).join('') +
+          d.links
+            .map(([l, u]) => (u === 'BOOKING' ? bookingBtn(esc(l)) : `<a class="btn" href="${attr(docHref(u))}"${linkAttrs(u)}>${esc(l)}</a>`))
+            .join('') +
           '</div></div>'
       )
       .join('') +
@@ -220,17 +230,19 @@ function renderDay(day, idx, tl) {
   const next = dates[idx + 1];
   const h = day.hotel ? hotelById[day.hotel] : null;
   if (day.hotel && !h) throw new Error('Hotel inexistente: ' + day.hotel);
-  const dayStart = toUtc(day.date, 0, 0, day.tz);
-  const dayEnd = toUtc(day.date, 24, 0, tl.endTz);
+  // El día empieza a las 00:00 locales, salvo que una entrada (p. ej. el despegue desde España) sea anterior.
+  const dayStart = Math.min(toUtc(day.date, 0, 0, day.tz), ...tl.items.map((it) => it.s));
+  const dayEnd = Math.max(toUtc(day.date, 24, 0, tl.endTz), ...tl.items.map((it) => it.e));
   const rests = annex.restaurants.map((r, i) => [r, i]).filter(([r]) => r.date === day.date);
   const gas = annex.gas.filter((g) => g.date === day.date);
   return (
     `<section class="view day" id="d-${day.date}" data-tab="dias" data-back="#dias" data-title="${attr(shortDate(day.date))}" data-day="${day.date}" data-ds="${dayStart}" data-de="${dayEnd}" data-hotel="${day.hotel || ''}" data-n="${idx + 1}">` +
-    `<header class="dh"><p class="eyebrow">Día ${idx + 1} de ${days.length} · ${esc(longDate(day.date))}</p>` +
+    `<header class="dh">${artLib.useArt(day.date, 'dh-art')}<div class="dh-text"><p class="eyebrow">Día ${idx + 1} de ${days.length} · ${esc(longDate(day.date))}</p>` +
     `<h2>${esc(day.title)}</h2><p class="route">${esc(day.route)}</p>` +
     `<p class="night">Noche: ${h ? `<a href="#${h.id}">${esc(h.name)}</a>` : esc(day.nightLabel || '—')}</p>` +
     (day.tzNote ? `<p class="tznote">${esc(day.tzNote)}</p>` : '') +
-    '</header>' +
+    '</div></header>' +
+    `<a class="wxlink" href="#tiempo" data-wx-day="${day.date}">El tiempo: ${esc((weather.days[day.date] || []).map((id) => weather.cities.find((c) => c.id === id).name.split(',')[0]).join(' · '))}</a>` +
     `<nav class="daynav">${prev ? `<a href="#d-${prev}">‹ ${esc(shortDate(prev))}</a>` : '<span></span>'}${next ? `<a href="#d-${next}">${esc(shortDate(next))} ›</a>` : '<span></span>'}</nav>` +
     '<h3>Horario</h3>' +
     renderTimeline(day, tl.items) +
@@ -273,7 +285,7 @@ function renderDayList() {
         const p = parseISO(d.date);
         const h = d.hotel ? hotelById[d.hotel].name : d.nightLabel;
         return (
-          `<li><a href="#d-${d.date}" data-day="${d.date}"><span class="dl-date"><small>${WD[p.wd].slice(0, 3)}</small><b>${p.d}</b><small>${MO[p.m - 1].slice(0, 3)}</small></span>` +
+          `<li><a href="#d-${d.date}" data-day="${d.date}"><span class="dl-date">${artLib.useArt(d.date, 'dl-art')}<small>${WD[p.wd].slice(0, 3)}</small><b>${p.d}</b><small>${MO[p.m - 1].slice(0, 3)}</small></span>` +
           `<span class="dl-body"><b>${esc(d.title)}</b><small>${esc(d.route)}</small><small class="dl-night">${svg('hoteles', 14)} ${esc(h)}</small></span></a></li>`
         );
       })
@@ -285,7 +297,7 @@ function renderDayList() {
 function renderHotels() {
   return (
     '<section class="view" id="hoteles" data-tab="hoteles" data-title="Hoteles"><h2>Hoteles</h2>' +
-    `<p class="note">${md(annex.hotelsNote)}</p>` +
+    `<p class="note">${md(annex.hotelsNote)}</p><div class="actions">${bookingBtn('Abrir la app de Booking (Mis viajes)')}</div>` +
     annex.hotels.map(renderHotel).join('') +
     '<h3>Aparcamientos relevantes</h3><ul class="keys">' +
     annex.parking
@@ -360,9 +372,11 @@ function renderSitios() {
 
 function renderMas() {
   const items = [
-    ['documentos', 'Documentos y reservas', 'Vuelos, coche, Booking, CityPASS y seguro'],
+    ['documentos', 'Documentos y reservas', 'Vuelos, coche, aparcamientos, Booking, entradas y seguro'],
     ['reservas', 'Reservas y horas confirmadas', 'Qué está confirmado y qué no'],
     ['checklist', 'Lista de comprobación', 'Pendientes antes de salir (se guarda en el móvil)'],
+    ['consejos', 'Consejos prácticos', 'Gasolina, propinas, conducir, silla del bebé…'],
+    ['peajes', 'Peajes', 'Autopistas sin cabinas y cómo se pagan'],
     ['guia', 'Cómo usar la guía', 'Husos horarios, márgenes y normas'],
     ['noches', 'Resumen de noches', 'Dónde dormís cada noche'],
     ['transporte', esc(annex.transit.menuTitle), esc(annex.transit.menuSub)],
@@ -378,27 +392,82 @@ function renderMas() {
 }
 
 function renderReservas() {
+  const sortKey = (x) => x.date + ' ' + ((x.time.match(/\d{2}:\d{2}/) || ['99:99'])[0]);
+  const sorted = (list) => [...list].sort((a, b) => (sortKey(a) < sortKey(b) ? -1 : 1));
   const row = (x, cls) =>
-    `<li class="${cls}" data-date="${x.date}"><a href="#d-${x.date}"><span class="rv-d">${esc(shortDate(x.date))} · ${esc(x.time)}</span><span class="rv-w">${esc(x.what)}</span></a></li>`;
+    `<li class="${cls}" data-date="${x.date}"><a href="${days.some((d) => d.date === x.date) ? '#d-' + x.date : '#d-' + days[days.length - 1].date}"><span class="rv-d">${esc(shortDate(x.date))} · ${esc(x.time)}</span><span class="rv-w">${esc(x.what)}</span></a></li>`;
   return (
     '<section class="view" id="reservas" data-tab="mas" data-back="#mas" data-title="Reservas"><h2>Reservas y horas confirmadas</h2>' +
     '<h3>Confirmado</h3><ul class="rv">' +
-    meta.confirmed.map((x) => row(x, 'okr')).join('') +
-    '</ul><h3>Sin plaza garantizada / por reservar</h3><ul class="rv">' +
-    meta.pending.map((x) => row(x, 'pendr')).join('') +
+    sorted(meta.confirmed).map((x) => row(x, 'okr')).join('') +
+    '</ul><h3>Sin reserva o pendiente</h3><ul class="rv">' +
+    sorted(meta.pending).map((x) => row(x, 'pendr')).join('') +
     '</ul></section>'
   );
 }
 
 function renderChecklist() {
-  const item = (t, extra) =>
-    `<li><label><input type="checkbox" data-k="c${hash(t)}"><span>${md(t)}${extra ? ' <em class="added">añadido</em>' : ''}</span></label></li>`;
+  const remByItem = new Map((annex.reminders || []).map((r) => [r.item, r]));
+  const item = (t, extra, i) => {
+    const r = extra ? remByItem.get(i) : null;
+    const rem = r
+      ? ` data-rem-from="${Date.parse(r.from)}" data-rem-until="${Date.parse(r.until)}" data-rem-title="${attr(r.title)}" data-rem-label="${attr(r.action[0])}" data-rem-href="${attr(r.action[1])}"`
+      : '';
+    if (r && (isNaN(Date.parse(r.from)) || isNaN(Date.parse(r.until)))) throw new Error('Fecha de recordatorio no válida: ' + r.title);
+    return `<li${rem}><label><input type="checkbox" data-k="c${hash(t)}"><span>${md(t)}${extra ? ' <em class="added">añadido</em>' : ''}</span></label></li>`;
+  };
+  for (const r of annex.reminders || []) if (!annex.checklistExtra[r.item]) throw new Error('Recordatorio sin tarea: ' + r.title);
   return (
     '<section class="view" id="checklist" data-tab="mas" data-back="#mas" data-title="Lista de comprobación"><h2>Lista de comprobación previa</h2>' +
     '<p class="note">Marca lo que vayas cerrando; se guarda en este móvil. <span id="chk-count"></span></p><ul class="chk">' +
-    annex.checklist.map((t) => item(t, false)).join('') +
-    annex.checklistExtra.map((t) => item(t, true)).join('') +
-    '</ul><p class="note">«añadido»: tarea derivada de las notas de cada jornada; no estaba en la lista original del PDF.</p></section>'
+    annex.checklist.map((t, i) => item(t, false, i)).join('') +
+    annex.checklistExtra.map((t, i) => item(t, true, i)).join('') +
+    '</ul><p class="note">«añadido»: tarea que no estaba en la lista original del PDF. Algunas aparecen como recordatorio en «Hoy» en su fecha.</p></section>'
+  );
+}
+
+function renderPeajes() {
+  const t = annex.tolls;
+  return (
+    '<section class="view" id="peajes" data-tab="mas" data-back="#mas" data-title="Peajes"><h2>Peajes</h2>' +
+    `<p>${md(t.intro)}</p><h3>Dónde</h3><dl class="kv">` +
+    t.where.map(([a, b]) => `<dt>${esc(a)}</dt><dd class="srch" data-c="Peajes" data-h="#peajes"><span class="st">${md(b)}</span></dd>`).join('') +
+    '</dl><h3>Qué hacer</h3><ul class="keys">' +
+    t.options.map((o) => `<li>${md(o)}</li>`).join('') +
+    '</ul><h3>Enlaces</h3><div class="actions">' +
+    t.links.map(([l, u]) => `<a class="btn" href="${attr(u)}" ${ext}>${esc(l)}</a>`).join('') +
+    `</div><p class="note">${esc(t.source)}</p></section>`
+  );
+}
+
+function renderConsejos() {
+  return (
+    '<section class="view" id="consejos" data-tab="mas" data-back="#mas" data-title="Consejos"><h2>Consejos prácticos</h2>' +
+    '<p class="note">Cosas que no venían en la guía y conviene tener presentes.</p>' +
+    annex.tips.map(([a, b]) => `<div class="card srch" data-c="Consejos" data-h="#consejos"><h4 class="st">${esc(a)}</h4><p>${md(b)}</p></div>`).join('') +
+    '</section>'
+  );
+}
+
+function renderTiempo() {
+  const visits = {};
+  for (const [date, ids] of Object.entries(weather.days)) for (const id of ids) (visits[id] = visits[id] || []).push(date);
+  const cities = weather.cities.map((c) => {
+    if (!visits[c.id]) throw new Error('Ciudad sin fechas: ' + c.id);
+    return { ...c, visits: visits[c.id] };
+  });
+  for (const ids of Object.values(weather.days)) for (const id of ids) if (!cities.find((c) => c.id === id)) throw new Error('Ciudad inexistente: ' + id);
+  const json = JSON.stringify({ cities, days: weather.days }).replace(/</g, '\\u003c');
+  return (
+    '<section class="view" id="tiempo" data-tab="tiempo" data-title="El tiempo">' +
+    `<header class="hero art-hero">${artLib.useArt('sky', 'hero-art')}<div class="hero-text"><p class="eyebrow">Previsión oficial</p><h2>El tiempo en ruta</h2>` +
+    '<p>Ahora, hoy y mañana en cada ciudad del viaje</p></div></header>' +
+    '<div class="wx-bar"><span id="wx-status" class="note">Cargando…</span><button type="button" class="btn" id="wx-refresh">Actualizar</button></div>' +
+    '<div id="wx-alerts"></div><div id="wx-groups"></div>' +
+    '<div class="card wx-sources"><h4>Fuentes</h4><p><b>Hoy, mañana y avisos:</b> Servicio Meteorológico Nacional de EE. UU. (NWS/NOAA), la previsión oficial del país. ' +
+    '<b>Ahora, amanecer/atardecer y días más lejanos:</b> modelo europeo ECMWF a través de <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> (datos con licencia CC BY 4.0). ' +
+    'Si el NWS no responde, se muestra el ECMWF. Necesita conexión; sin ella verás los últimos datos guardados.</p></div>' +
+    `<script type="application/json" id="wx-data">${json}</script></section>`
   );
 }
 
@@ -462,6 +531,7 @@ function renderBuscar() {
 function renderHoy() {
   return (
     '<section class="view" id="hoy" data-tab="hoy" data-title="Road Trip 2026"><div id="hoy-live"></div>' +
+    `<div class="nojs-art">${artLib.useArt('road', 'hero-art')}</div>` +
     `<div class="nojs"><h2>${esc(meta.title)}</h2><p class="route">${esc(meta.subtitle)}</p><p>${esc(meta.states)}</p>` +
     `<p class="note">${esc(meta.facts.join(' · '))}</p><p class="note">${esc(meta.disclaimer)}</p></div></section>`
   );
@@ -474,6 +544,7 @@ function renderToc() {
     days.map((d, i) => `<li><a href="#d-${d.date}">Día ${i + 1} · ${esc(shortDate(d.date))} · ${esc(d.title)}</a></li>`).join('') +
     '<li><a href="#hoteles">Hoteles</a></li><li><a href="#comer">Restaurantes</a></li><li><a href="#visitas">Visitas</a></li>' +
     '<li><a href="#gasolina">Gasolineras</a></li><li><a href="#documentos">Documentos</a></li><li><a href="#reservas">Reservas</a></li><li><a href="#checklist">Lista de comprobación</a></li>' +
+    '<li><a href="#consejos">Consejos prácticos</a></li><li><a href="#peajes">Peajes</a></li>' +
     `<li><a href="#transporte">${esc(annex.transit.tocLabel)}</a></li><li><a href="#exclusiones">Exclusiones</a></li></ul></nav>`
   );
 }
@@ -495,7 +566,14 @@ function build() {
   });
 
   const timelines = days.map(buildTimeline);
+  // Sprite con todas las ilustraciones e iconos del tiempo. No usar display:none: rompería los degradados.
+  const sprite =
+    '<svg class="sprite" width="0" height="0" aria-hidden="true" focusable="false">' +
+    artLib.KEYS.map(artLib.symbol).join('') +
+    artLib.wxSymbols() +
+    '</svg>';
   const body =
+    sprite +
     `<header class="appbar"><a class="back" href="#dias" hidden aria-label="Volver">${svg('back')}</a>` +
     '<span class="apptitle">Road Trip 2026</span>' +
     `<a class="docsbtn" href="#documentos" aria-label="Documentos y reservas">${svg('docs')}</a>` +
@@ -507,10 +585,13 @@ function build() {
     days.map((d, i) => renderDay(d, i, timelines[i])).join('') +
     renderHotels() +
     renderSitios() +
+    renderTiempo() +
     renderMas() +
     renderDocs() +
     renderReservas() +
     renderChecklist() +
+    renderConsejos() +
+    renderPeajes() +
     renderGuia() +
     renderNoches() +
     renderTransporte() +
@@ -521,6 +602,7 @@ function build() {
     [
       ['hoy', 'Hoy', 'hoy'],
       ['dias', 'Días', 'dias'],
+      ['tiempo', 'Tiempo', 'tiempo'],
       ['hoteles', 'Hoteles', 'hoteles'],
       ['comer', 'Sitios', 'sitios'],
       ['mas', 'Más', 'mas'],
