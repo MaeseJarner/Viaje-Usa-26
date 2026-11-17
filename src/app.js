@@ -276,6 +276,16 @@
       });
     }
 
+    // ---------- bóveda: abrir sin navegar ----------
+    document.addEventListener('click', function (e) {
+      var link = e.target.closest && e.target.closest('[data-no-nav]');
+      if (!link) return;
+      e.preventDefault();
+      if (window.__BV && typeof window.__BV.openView === 'function') {
+        window.__BV.openView();
+      }
+    });
+
     // ---------- copiar códigos ----------
     document.addEventListener('click', function (e) {
       var b = e.target.closest && e.target.closest('button.copy');
