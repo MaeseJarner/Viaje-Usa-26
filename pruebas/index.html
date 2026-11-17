@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Viaje de Prueba - Enlaces Externos</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 20px; background: #f5f5f5; color: #333; }
+  .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 12px; padding: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+  h1 { color: #1d6a86; margin-top: 0; }
+  .note { background: #fff3cd; border-left: 4px solid #ffc107; padding: 12px; margin-bottom: 20px; border-radius: 4px; }
+  h2 { color: #1d6a86; font-size: 1.2em; margin-top: 24px; border-bottom: 2px solid #e0e0e0; padding-bottom: 8px; }
+  .link-list { list-style: none; padding: 0; margin: 0; }
+  .link-list li { margin-bottom: 12px; padding: 12px; background: #f8f9fa; border-radius: 8px; border: 1px solid #e9ecef; }
+  .link-list a { color: #1d6a86; text-decoration: none; font-weight: 500; display: block; word-break: break-all; }
+  .link-list a:hover { text-decoration: underline; }
+  .link-list small { color: #666; display: block; margin-top: 4px; font-size: 0.85em; }
+  .status { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 0.75em; font-weight: bold; margin-left: 8px; }
+  .status.tested { background: #d4edda; color: #155724; }
+  .status.pending { background: #fff3cd; color: #856404; }
+  .info { background: #e7f3ff; padding: 12px; border-radius: 8px; margin-top: 24px; font-size: 0.9em; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>🧪 Versión de Prueba</h1>
+
+  <div class="note">
+    <strong>Datos ficticios:</strong> Esta página contiene enlaces externos de prueba con datos inventados para validar el funcionamiento sin exponer información privada del viaje real.
+  </div>
+
+  <h2>📍 Google Maps - Navegación</h2>
+  <ul class="link-list">
+    <li>
+      <a href="https://www.google.com/maps/dir/?api=1&destination=Chicago+O%27Hare+International+Airport,+Chicago,+IL" target="_blank" rel="noopener">
+        Ir a Chicago O'Hare
+        <span class="status pending">Pendiente probar</span>
+      </a>
+      <small>Enlace tipo dir/ con destino completo</small>
+    </li>
+    <li>
+      <a href="https://www.google.com/maps/search/?api=1&query=Best+Coffee+Shop+Chicago" target="_blank" rel="noopener">
+        Buscar cafetería en Chicago
+        <span class="status pending">Pendiente probar</span>
+      </a>
+      <small>Enlace tipo search/ con query</small>
+    </li>
+    <li>
+      <a href="https://www.google.com/maps/dir/?api=1&destination=Springfield,+IL&travelmode=driving" target="_blank" rel="noopener">
+        Ruta a Springfield (con modo conducción)
+        <span class="status pending">Pendiente probar</span>
+      </a>
+      <small>Incluye parámetro travelmode=driving</small>
+    </li>
+  </ul>
+
+  <h2>🏨 Booking.com</h2>
+  <ul class="link-list">
+    <li>
+      <a href="https://www.booking.com/mytrips.html" target="_blank" rel="noopener">
+        Ver mis reservas en Booking
+        <span class="status pending">Pendiente probar</span>
+      </a>
+      <small>Página de reservas del usuario</small>
+    </li>
+    <li>
+      <a href="https://secure.booking.com/mytrips.html" target="_blank" rel="noopener">
+        Acceso seguro a reservas
+        <span class="status pending">Pendiente probar</span>
+      </a>
+      <small>Url segura (secure.booking.com)</small>
+    </li>
+  </ul>
+
+  <h2>🌤️ Meteorología</h2>
+  <ul class="link-list">
+    <li>
+      <a href="https://open-meteo.com/en/forecast?latitude=41.8781&longitude=-87.6298&hourly=temperature_2m,precipitation_probability" target="_blank" rel="noopener">
+        Weather Chicago (Open-Meteo)
+        <span class="status pending">Pendiente probar</span>
+      </a>
+      <small>API meteorológica abierta</small>
+    </li>
+    <li>
+      <a href="https://forecast.weather.gov/MapClick.php?lat=29.7604&lon=-95.3698" target="_blank" rel="noopener">
+        Weather Houston (NOAA)
+        <span class="status pending">Pendiente probar</span>
+      </a>
+      <small>Servicio oficial NOAA</small>
+    </li>
+  </ul>
+
+  <h2>🚗 Peajes y Transporte</h2>
+  <ul class="link-list">
+    <li>
+      <a href="https://www.illinoistollway.com/paybyplate" target="_blank" rel="noopener">
+        Illinois Tollway Pay By Plate
+        <span class="status pending">Pendiente probar</span>
+      </a>
+      <small>Sistema de peaje online</small>
+    </li>
+    <li>
+      <a href="https://www.budget.com/en/locations/us/il/chicago/ord.html" target="_blank" rel="noopener">
+        Budget Rent a Car - Chicago O'Hare
+        <span class="status pending">Pendiente probar</span>
+      </a>
+      <small>Oficina de alquiler en aeropuerto</small>
+    </li>
+  </ul>
+
+  <h2>✈️ Vuelos y Aerolíneas</h2>
+  <ul class="link-list">
+    <li>
+      <a href="https://www.iberia.com/es/" target="_blank" rel="noopener">
+        Iberia - Web oficial
+        <span class="status pending">Pendiente probar</span>
+      </a>
+      <small>Aerolínea del viaje</small>
+    </li>
+  </ul>
+
+  <h2>📱 Aplicaciones Móviles</h2>
+  <ul class="link-list">
+    <li>
+      <a href="https://apps.apple.com/app/id123456789" target="_blank" rel="noopener">
+        App Store (enlace de ejemplo)
+        <span class="status pending">Pendiente probar</span>
+      </a>
+      <small>Deep link a App Store</small>
+    </li>
+    <li>
+      <a href="https://play.google.com/store/apps/details?id=com.example.test" target="_blank" rel="noopener">
+        Google Play (enlace de ejemplo)
+        <span class="status pending">Pendiente probar</span>
+      </a>
+      <small>Deep link a Google Play</small>
+    </li>
+  </ul>
+
+  <h2>💬 WhatsApp</h2>
+  <ul class="link-list">
+    <li>
+      <a href="https://wa.me/34600404606?text=Hola!%20Soy%20el%20viajero" target="_blank" rel="noopener">
+        Enviar mensaje por WhatsApp
+        <span class="status pending">Pendiente probar</span>
+      </a>
+      <small>Enlace wa.me con texto predefinido</small>
+    </li>
+  </ul>
+
+  <div class="info">
+    <strong>ℹ️ Instrucciones de prueba:</strong><br>
+    Abre esta página en tu navegador móvil y pulsa cada enlace para verificar que:<br>
+    • Se abren correctamente en nueva pestaña<br>
+    • Los deep links funcionen en apps instaladas (Booking, Maps, WhatsApp)<br>
+    • No hay errores de red o redirecciones rotas
+  </div>
+</div>
+</body>
+</html>
