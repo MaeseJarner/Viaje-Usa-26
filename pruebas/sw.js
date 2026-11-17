@@ -1,6 +1,6 @@
 // Service worker: la app funciona sin conexión. Responde siempre desde la caché y actualiza en segundo plano,
 // así en carretera abre al instante aunque no haya cobertura; la versión nueva se ve en la siguiente apertura.
-const CACHE = 'rt26-pruebas-41256a720e';
+const CACHE = 'rt26-pruebas-d50d18aa80';
 const ASSETS = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
 
 self.addEventListener('install', (e) => {
