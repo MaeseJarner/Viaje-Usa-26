@@ -1044,7 +1044,12 @@ button.btn{border:0;cursor:pointer;font-family:inherit}
     for (var i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
     return btoa(s);
   }
-  function b64tobuf(b) { return h2u(atob(b)); }
+  function b64tobuf(b) {
+    var s = atob(b);
+    var u = new Uint8Array(s.length);
+    for (var i = 0; i < s.length; i++) u[i] = s.charCodeAt(i);
+    return u;
+  }
 
   // ---------- cripto ----------
   function deriveKey(password) {
@@ -1496,6 +1501,12 @@ button.btn{border:0;cursor:pointer;font-family:inherit}
     var nm   = cardNameInput.value.trim();
     if (!url) { msgEl.textContent = 'Introduce una URL de reserva.'; return; }
     try { new URL(url); } catch (_) { msgEl.textContent = 'URL no válida.'; return; }
+    // Solo permitir HTTPS + dominio booking.com para proteger enlaces privados
+    var u;
+    try { u = new URL(url); } catch (_) { return; }
+    if (u.protocol !== 'https:' || !/\.booking\.com$/i.test(u.hostname)) {
+      msgEl.textContent = 'Solo se permiten enlaces seguros de booking.com.'; return;
+    }
     msgEl.textContent = 'Guardando…';
     var entry = { cid: cid, url: url, nm: nm, updated: Date.now() };
     var idx = encryptedBuf.findIndex(function (e) { return e.cid === cid; });
@@ -1541,9 +1552,15 @@ button.btn{border:0;cursor:pointer;font-family:inherit}
           if (!j.v || !j.d || !j.d.salt || !j.d.ct) { alert('Archivo de copia no válido.'); return; }
           if (!confirm('Esto sustituirá los ' + (encryptedBuf ? encryptedBuf.length : 0) + ' enlaces actuales.\n\nContinuar?')) return;
           saltBuf = h2u(j.d.salt);
-          decryptPayload(masterKey, j.d.iv, j.d.ct).then(function (txt) {
-            encryptedBuf = JSON.parse(txt);
-            persistData().then(function () { _refreshList(); _updateHotelButtons(); });
+          // Re-derive key for the imported file's salt (password may differ)
+          var importPw = prompt('Contraseña para importar este archivo (debe ser la que se usó al exportar):');
+          if (!importPw) return;
+          deriveKey(importPw).then(function (k) {
+            return decryptPayload(k, j.d.iv, j.d.ct).then(function (txt) {
+              encryptedBuf = JSON.parse(txt);
+              masterKey    = k;
+              persistData().then(function () { _refreshList(); _updateHotelButtons(); });
+            });
           }, function () { alert('Error: clave incorrecta o archivo corrupto.'); });
         } catch (ex) { alert('Formato de archivo incorrecto.'); }
       };
@@ -1603,7 +1620,7 @@ button.btn{border:0;cursor:pointer;font-family:inherit}
       return e ? e.url : null;
     }
 
-    function escAttr(s) { return String(s).replace(/[&<>"']/g, c => ({'&':'&','<':'<','>':'>','"':'"',"'":'''})[c]); }
+    function escAttr(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
 
     // ---------- API pública ----------
   window.__BV = {
@@ -1620,6 +1637,41 @@ button.btn{border:0;cursor:pointer;font-family:inherit}
       setTimeout(function () { _openEdit(cid); }, 100);
     }
   };
+
+  // ---------- pruebas automatizadas (solo se activa si se define __BV_TEST__) ----------
+  if (typeof window !== 'undefined' && window.__BV_TEST__) {
+    window.__BV_TEST__ = {
+      setUnlock: function (v) { unlocked = v; },
+      forcePw: function (pw) { saltBuf = null; return unlockOrPw(pw); },
+      create: createVault,
+      persist: persistData,
+      _submitEdit: _submitEdit,
+      _doImport: _doImport,
+      _doExport: _doExport,
+      setEdit: function (cid, url, nm) {
+        cardId.textContent = cid;
+        cardUrlInput.value = url || '';
+        cardNameInput.value = nm || '';
+      },
+      getMsg: function () { return msgEl ? msgEl.textContent : ''; },
+      setMsg: function (t) { if (msgEl) msgEl.textContent = t; },
+      getCard: function () { return { cid: cardId.textContent, url: cardUrlInput.value, nm: cardNameInput.value }; },
+      showEdit: function () { return editModal ? !editModal.hidden : false; },
+      get: function () { return encryptedBuf; },
+      setData: function (d) { encryptedBuf = d; },
+      setSalt: function (u8) { saltBuf = u8; },
+      getSalt: function () { return saltBuf; },
+      getKey: function () { return masterKey; },
+      isUnlocked: function () { return unlocked; },
+      locked: locked,
+      _updateHotelButtons: _updateHotelButtons,
+      _openEdit: _openEdit,
+      _refreshList: _refreshList,
+      getLink: getLink,
+      DB_NAME: DB_NAME,
+      PUB_KEY: PUB_KEY
+    };
+  }
 
   // Arranque
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
