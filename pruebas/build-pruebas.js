@@ -684,6 +684,7 @@ function build() {
 
   const CSS = fs.readFileSync(path.join(__dirname, '../src/app.css'), 'utf8');
   const VAULT_CSS = [
+    '.bv-overlay[hidden],.bv-modal[hidden]{display:none!important}',
     '.bv-overlay{position:fixed;inset:0;z-index:9999;background:rgba(22,41,63,.92);display:flex;align-items:center;justify-content:center;padding:.8rem}',
     '.bv-form{background:var(--card);color:var(--ink);border-radius:18px;padding:1.2rem;width:100%;max-width:380px;display:flex;flex-direction:column;gap:.6rem}',
     '.bv-pwrow{display:flex;gap:6px}',
