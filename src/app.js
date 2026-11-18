@@ -343,6 +343,9 @@
       }).join('') + (hits.length > 80 ? '<p class="note">Mostrando 80 de ' + hits.length + '.</p>' : '');
     }
     var timer = null;
+    // P1 #2: aria-label for accessibility
+    var q = $('#q');
+    if (q) q.setAttribute('aria-label', 'Buscar en el viaje');
     $('#q').addEventListener('input', function (e) {
       clearTimeout(timer);
       timer = setTimeout(function () { search(e.target.value); }, 120);
@@ -370,6 +373,15 @@
     refresh();
     setInterval(refresh, 30000);
     document.addEventListener('visibilitychange', function () { if (!document.hidden) refresh(); });
+
+    // P1 #6: offline/online banner
+    var banner = document.querySelector('.offline-banner');
+    if (banner) {
+      var updateBanner = function () { banner.classList.toggle('show', !navigator.onLine); };
+      window.addEventListener('online', updateBanner);
+      window.addEventListener('offline', updateBanner);
+      updateBanner();
+    }
 
     if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
       navigator.serviceWorker.register('sw.js').catch(function () {});

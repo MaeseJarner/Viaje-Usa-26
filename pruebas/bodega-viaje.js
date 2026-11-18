@@ -376,15 +376,12 @@
       if (unlocked) { _showPanel(); }
       else { _showLockForm(); }
     };
-    // Hook para detectar cambios de hash e iniciar si es #bodega
-    var checkHash = function () {
-      if (location.hash === '#bodega') {
-        location.hash = '#bodega';
-        __BV_OPEN_BODEGA();
-      }
+    // Abrir bóveda si la URL llega con #bodega (enlaces directos / marcadores).
+    // No tocar location.hash — hacerlo generaría bucle infinito al re-disparar este mismo listener.
+    var initFromHash = function () {
+      if (location.hash === '#bodega') __BV_OPEN_BODEGA();
     };
-    window.addEventListener('hashchange', checkHash);
-    setTimeout(checkHash, 500);
+    setTimeout(initFromHash, 500);
   }
 
   function _showLockForm() {

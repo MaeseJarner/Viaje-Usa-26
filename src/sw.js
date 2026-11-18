@@ -25,19 +25,18 @@ self.addEventListener('fetch', (e) => {
   const req = e.request;
   if (req.method !== 'GET' || new URL(req.url).origin !== self.location.origin) return;
   if (req.mode === 'navigate') {
-    const network = fetch(req)
-      .then((res) => {
-        if (res.ok) {
-          const copy = res.clone();
-          caches.open(CACHE).then((c) => c.put('./index.html', copy));
-        }
-        return res;
-      })
-      .catch(() => null);
-    e.waitUntil(network);
+    // Fallback síncrono: responde con lo cacheado inmediatamente.
     e.respondWith(
-      caches.match('./index.html').then((cached) => cached || network.then((r) => r || new Response('Sin conexión', { status: 503 })))
+      caches.match(req).then((cached) => {
+        if (cached) return cached;
+        return caches.match('./index.html').then((htmlCached) => htmlCached || new Response('', { status: 503 }));
+      })
     );
+    // Intentar actualizar la caché en segundo plano sin bloquear la respuesta.
+    fetch(req).catch(() => void 0);
+    e.waitUntil(fetch(req).then((res) => {
+      if (res.ok) { const copy = res.clone(); caches.open(CACHE).then((c) => c.put('./index.html', copy)); }
+    }).catch(() => void 0));
     return;
   }
   e.respondWith(caches.match(req).then((r) => r || fetch(req)));
