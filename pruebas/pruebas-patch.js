@@ -3,7 +3,7 @@
 // Esto permite que App Links de Android funcione directamente sobre la URL base.
 (function patchBookingLinks() {
   // Eliminar el listener existente si se hubiera registrado
-  var bookingLinks = $$('a.booking-link');
+  var bookingLinks = document.querySelectorAll('a.booking-link');
   bookingLinks.forEach(function (a) {
     a.classList.remove('booking-link');
     a.setAttribute('data-booking-patched', 'true');
